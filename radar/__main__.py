@@ -41,9 +41,10 @@ def main(argv=None) -> None:
     if args.comando == "site":
         from . import estatico
         feito = estatico.exportar(con, Path(args.saida))
-        print(f"Site em {Path(args.saida).resolve()}: {feito['mencoes']} menções, {feito['arquivos']} arquivos de "
-              f"dados ({feito['bytes'] / 1e6:.1f} MB). Para ver antes de publicar: "
-              f"python -m http.server --directory {args.saida}")
+        print(f"Site em {Path(args.saida).resolve()}: {feito['mencoes']} menções, {feito['contas']} contas, "
+              f"{len(feito['com_capa'])} capas, {len(feito['com_foto'])} fotos e {len(feito['midias'])} mídias de "
+              f"stories; {feito['arquivos']} arquivos de dados ({feito['bytes'] / 1e6:.1f} MB). Para ver antes de "
+              f"publicar: python -m http.server --directory {args.saida}")
         return
     feitos = capas_mod.rodada(con, limite=args.limite)
     apagadas = capas_mod.limpar(con)

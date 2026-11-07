@@ -1,14 +1,17 @@
 """O painel sem servidor, para o GitHub Pages: grava em arquivos JSON as respostas que a API do painel (painel.py)
-daria, e a página lê esses arquivos no lugar do servidor (web/estatico.js). No repositório RadarRep, o comando é
-`python -m radar site`.
+daria, e a página lê esses arquivos no lugar do servidor (web/estatico.js). O comando é `python -m radar site`.
 
 Cada pedido que as telas podem fazer vira um arquivo: a tela inicial, a ficha de cada menção, a página de cada conta e
 de cada município, o mapa e os setores em cada filtro, a lista de contas. As fileiras ("ver tudo") guardam, para cada
-combinação de período, sentimento e ordem que a página oferece, os ids dos cartões de cada página; os cartões ficam uma
-vez só, em api/itens.json. A busca roda na página, sobre o texto já sem acento de api/busca.json.
+combinação de período, sentimento e ordem, os ids dos cartões de cada página; os cartões ficam uma vez só, em
+api/itens.json. A busca roda na página, sobre o texto já sem acento de api/busca.json. As contas são as que o painel
+mostra: as monitoradas e as que publicaram sobre a Energisa.
 
-É uma fotografia: "7 dias" são os 7 dias antes da geração. As imagens não vão (capa e foto saem como ausentes, e o
-cartão vira o cartaz com o texto). Nada é gravado no banco.
+As imagens já baixadas (capas.py) vão junto: as capas em capa/, as fotos dos perfis em foto/ e a mídia salva dos
+stories em midia/. Item sem imagem no site sai sem ela, e o cartão vira o cartaz com o texto.
+
+É uma fotografia do banco, lido numa transação só (a coleta pode gravar enquanto isso): "7 dias" são os 7 dias antes
+da geração. Nada é gravado no banco nem na pasta de dados.
 """
 import json
 import re
@@ -16,12 +19,12 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 
-from . import painel
+from . import capas, painel
 
 SIMPLES = re.compile(r"[0-9a-z_-][0-9a-z_.-]{0,63}")  # id que já serve de nome de arquivo
 DIAS = (7, 30, 90, None)  # os períodos dos filtros da página (DIAS_MENCOES no app.js); None é "Tudo"
 SENTIMENTOS = ("negativo", "neutro", "positivo")
-SQL_CONTAS = "SELECT username FROM contas WHERE rede = 'instagram' ORDER BY username"
+PASTAS = ("api", "capa", "foto", "midia")  # o que a geração anterior deixou e a nova refaz
 
 
 def fnv1a(texto: str) -> int:
@@ -43,28 +46,74 @@ def _chave_dias(dias) -> str:
     return "todos" if dias is None else f"{dias:g}"
 
 
-def sem_imagens(valor):
-    """As imagens não vão para o site: capa e foto saem como ausentes, e a mídia do story também."""
+def para_o_site(valor, com_capa: set[str], com_foto: set[str], midias: dict[str, dict]):
+    """A resposta do servidor com os arquivos que o site tem: capa nos posts de `com_capa`, foto nas contas de
+    `com_foto` e, nos stories de `midias`, a mídia com o endereço dela no site."""
     if isinstance(valor, dict):
-        return {k: False if k in ("capa", "foto") and isinstance(v, bool) else None if k == "midia" else sem_imagens(v)
-                for k, v in valor.items()}
+        saida = {}
+        for chave, v in valor.items():
+            if chave == "capa" and isinstance(v, bool):
+                saida[chave] = valor.get("id") in com_capa
+            elif chave == "foto" and isinstance(v, bool):
+                saida[chave] = valor.get("username") in com_foto
+            elif chave == "midia":
+                saida[chave] = midias.get(valor.get("id"))
+            else:
+                saida[chave] = para_o_site(v, com_capa, com_foto, midias)
+        return saida
     if isinstance(valor, list):
-        return [sem_imagens(v) for v in valor]
+        return [para_o_site(v, com_capa, com_foto, midias) for v in valor]
     return valor
 
 
+def _copiar(origem: Path, alvo: Path) -> None:
+    alvo.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(origem, alvo)
+
+
+def _arquivos(con, destino: Path, itens: dict, contas: list[str]) -> tuple[set[str], set[str], dict[str, dict]]:
+    """Copia para o site o que já está baixado: as capas das menções, as fotos das contas e a mídia salva dos stories.
+    A capa do story sai da imagem que o coletor salvou, como no servidor. Devolve os ids com capa, as contas com foto e
+    a mídia de cada story."""
+    com_capa, com_foto, midias = set(), set(), {}
+    stories = dict(con.execute("SELECT post_id, arquivo FROM posts WHERE tipo = 'Story' AND arquivo IS NOT NULL"))
+    for post_id in itens:
+        alvo = destino / "capa" / f"{nome_arquivo(post_id)}.jpg"
+        origem = capas.arquivo_post(post_id)
+        if origem is not None and origem.exists():
+            _copiar(origem, alvo)
+            com_capa.add(post_id)
+        elif (imagem := capas.imagem_do_story(stories.get(post_id))) and capas.guardar_arquivo(imagem, alvo):
+            com_capa.add(post_id)
+        if (midia := painel._arquivo_midia(stories.get(post_id))) is not None:
+            alvo = destino / "midia" / f"{nome_arquivo(post_id)}{midia.suffix.lower()}"
+            _copiar(midia, alvo)
+            midias[post_id] = {"tipo": "video" if midia.suffix.lower() == ".mp4" else "imagem",
+                               "url": f"midia/{alvo.name}"}
+    for username in contas:
+        origem = capas.arquivo_foto(username)
+        if origem is not None and origem.exists():
+            _copiar(origem, destino / "foto" / f"{nome_arquivo(username)}.jpg")
+            com_foto.add(username)
+    return com_capa, com_foto, midias
+
+
 class _Site:
-    def __init__(self, raiz: Path):
+    def __init__(self, raiz: Path, com_capa: set[str], com_foto: set[str], midias: dict[str, dict]):
         self.raiz = raiz
+        self.com_capa, self.com_foto, self.midias = com_capa, com_foto, midias
         self.nomes: set[str] = set()
         self.arquivos = 0
         self.tamanho = 0
+
+    def ajustar(self, dados):
+        return para_o_site(dados, self.com_capa, self.com_foto, self.midias)
 
     def gravar(self, caminho: str, dados) -> None:
         if caminho.lower() in self.nomes:  # dois ids com o mesmo nome de arquivo
             raise ValueError(f"Dois arquivos com o nome {caminho}.")
         self.nomes.add(caminho.lower())
-        corpo = json.dumps(sem_imagens(dados), ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        corpo = json.dumps(self.ajustar(dados), ensure_ascii=False, separators=(",", ":")).encode("utf-8")
         destino = self.raiz / caminho
         destino.parent.mkdir(parents=True, exist_ok=True)
         destino.write_bytes(corpo)
@@ -73,12 +122,13 @@ class _Site:
 
 
 def _preparar(destino: Path) -> None:
-    """Pasta vazia, ou um site gerado antes (tem o .nojekyll): a api/ antiga sai inteira. Pasta com outros arquivos
-    não é tocada."""
+    """Pasta vazia, ou um site gerado antes (tem o .nojekyll): os dados e as imagens antigos saem. Pasta com outros
+    arquivos não é tocada."""
     if destino.exists() and any(destino.iterdir()):
         if not (destino / ".nojekyll").exists():
             raise FileExistsError(f"A pasta {destino} já tem outros arquivos: escolha uma pasta vazia para o site.")
-        shutil.rmtree(destino / "api", ignore_errors=True)
+        for pasta in PASTAS:
+            shutil.rmtree(destino / pasta, ignore_errors=True)
     destino.mkdir(parents=True, exist_ok=True)
 
 
@@ -86,9 +136,7 @@ def _pagina(destino: Path) -> None:
     """Os arquivos da página, com o estatico.js carregado antes do app.js."""
     for arquivo in painel.WEB.rglob("*"):
         if arquivo.is_file():
-            alvo = destino / arquivo.relative_to(painel.WEB)
-            alvo.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(arquivo, alvo)
+            _copiar(arquivo, destino / arquivo.relative_to(painel.WEB))
     html = (painel.WEB / "index.html").read_bytes().decode("utf-8")
     app = '<script type="module" src="app.js"></script>'
     if app not in html:
@@ -99,13 +147,20 @@ def _pagina(destino: Path) -> None:
     (destino / ".nojekyll").write_bytes(b"")  # o GitHub Pages entrega os arquivos como estão, sem o Jekyll
 
 
-def _ids_das_fileiras(con) -> list[str]:
+def _contas_do_painel(con) -> list[str]:
+    """As contas a que a página leva: a página Contas, a busca, as fichas e o mapa só mostram as monitoradas e as que
+    publicaram sobre a Energisa."""
+    monitoradas = json.dumps(painel.monitoradas(con))
+    return sorted(l[0] for l in con.execute(painel.SQL_CONTAS_TODAS, (monitoradas,)))
+
+
+def _ids_das_fileiras(con, contas: list[str]) -> list[str]:
     """Toda fileira a que a página chega: as fixas, as dos setores, as de cada município (menções e contas da cidade)
     e as de cada conta."""
     ids = [*painel.LINHAS, *(f"setor-{s}" for s in painel.NOMES_SETOR)]
     for (ibge,) in con.execute("SELECT ibge_id FROM municipios ORDER BY ibge_id").fetchall():
         ids += [f"municipio-{ibge}", f"cidade-{ibge}"]
-    return ids + [f"conta-{u}" for (u,) in con.execute(SQL_CONTAS).fetchall()]
+    return ids + [f"conta-{u}" for u in contas]
 
 
 def _paginas(con, rota: str, q: dict, agora) -> list[dict]:
@@ -118,7 +173,7 @@ def _paginas(con, rota: str, q: dict, agora) -> list[dict]:
             return respostas
 
 
-def _fileira(con, linha_id: str, itens: dict, agora) -> dict | None:
+def _fileira(con, linha_id: str, itens: dict, site: _Site, agora) -> dict | None:
     """Uma fileira: título, formato, filtros padrão e, para cada combinação de filtros que a página pode pedir, os ids
     dos cartões de cada página."""
     base = painel.responder(con, f"linha/{linha_id}", {}, agora)
@@ -137,7 +192,7 @@ def _fileira(con, linha_id: str, itens: dict, agora) -> dict | None:
             for ordem in ordens:
                 q = {"dias": _chave_dias(dias), "ordem": ordem} | ({"sentimento": sentimento} if sentimento else {})
                 paginas = _paginas(con, f"linha/{linha_id}", q, agora)
-                if any(itens.get(p["id"]) != p for r in paginas for p in r["itens"]):
+                if any(site.ajustar(itens.get(p["id"])) != site.ajustar(p) for r in paginas for p in r["itens"]):
                     raise RuntimeError(f"Cartão da fileira {linha_id} diferente do de api/itens.json.")
                 f = paginas[0]["filtros"]
                 chave = f"{_chave_dias(f['dias'])}|{f['sentimento'] or ''}|{f['ordem']}"
@@ -169,24 +224,35 @@ def _indice_da_busca(con) -> dict:
 
 
 def exportar(con, destino: Path | str, agora: datetime | None = None) -> dict:
-    """Grava o site em `destino`. Devolve quantos arquivos de dados ele tem, o tamanho deles e quantas menções."""
-    agora = agora or painel._agora()
-    destino = Path(destino)
+    """Grava o site em `destino`, com o banco lido numa transação só. Devolve quantos arquivos de dados ele tem e o
+    tamanho deles, quantas menções e contas, os ids com capa, as contas com foto e a mídia dos stories."""
+    fotografia = not con.in_transaction
+    if fotografia:
+        con.execute("BEGIN")  # a coleta pode gravar enquanto o site é gerado: tudo sai do mesmo instante do banco
+    try:
+        return _exportar(con, Path(destino), agora or painel._agora())
+    finally:
+        if fotografia:
+            con.rollback()
+
+
+def _exportar(con, destino: Path, agora: datetime) -> dict:
     _preparar(destino)
     _pagina(destino)
-    site = _Site(destino)
+    contas = _contas_do_painel(con)
+    itens = {p["id"]: p for p in painel.posts(con, {}, 1_000_000, agora=agora)[0]}
+    site = _Site(destino, *_arquivos(con, destino, itens, contas))
     site.gravar("api/status.json", painel.responder(con, "status", {}, agora) | {"estatico": True})
     for rota in ("inicio", "mapa-base"):
         site.gravar(f"api/{rota}.json", painel.responder(con, rota, {}, agora))
-    itens = {p["id"]: p for p in painel.posts(con, {}, 1_000_000, agora=agora)[0]}
     site.gravar("api/itens.json", itens)
     for post_id in itens:
         site.gravar(f"api/post/{nome_arquivo(post_id)}.json", painel.responder(con, f"post/{post_id}", {}, agora))
-    for linha_id in _ids_das_fileiras(con):
-        dados = _fileira(con, linha_id, itens, agora)
+    for linha_id in _ids_das_fileiras(con, contas):
+        dados = _fileira(con, linha_id, itens, site, agora)
         if dados is not None:
             site.gravar(f"api/linha/{nome_arquivo(linha_id)}.json", dados)
-    for (username,) in con.execute(SQL_CONTAS).fetchall():
+    for username in contas:
         dados = painel.responder(con, f"conta/{username}", {}, agora)
         if dados is not None:
             site.gravar(f"api/conta/{nome_arquivo(username)}.json", dados)
@@ -202,4 +268,5 @@ def exportar(con, destino: Path | str, agora: datetime | None = None) -> dict:
                         painel.responder(con, "mapa", q | {"camada": "mencoes"}, agora))
     site.gravar("api/mapa/perfis.json", painel.responder(con, "mapa", {"camada": "perfis"}, agora))
     site.gravar("api/busca.json", _indice_da_busca(con))
-    return {"arquivos": site.arquivos, "bytes": site.tamanho, "mencoes": len(itens)}
+    return {"arquivos": site.arquivos, "bytes": site.tamanho, "mencoes": len(itens), "contas": len(contas),
+            "com_capa": site.com_capa, "com_foto": site.com_foto, "midias": site.midias}

@@ -9,8 +9,9 @@ Este repositório tem **só a visualização** e um banco de demonstração com 
 contas, a leitura dos stories, a busca de matérias e a análise das menções pela IA) não está aqui. O painel lê o banco
 `radar.db` que a coleta do Radar gera, sem gravar nada nele, e pode ficar aberto enquanto ela roda.
 
-**Ver no navegador, sem instalar nada:** https://lpkramer.github.io/RadarRep/ (o painel com as notícias de
-demonstração, publicado pelo GitHub Pages).
+**Ver no navegador, sem instalar nada:** https://lpkramer.github.io/RadarRep/. É o painel completo, publicado pelo
+GitHub Pages a partir da base inteira do Radar: todas as menções, as contas monitoradas, as capas, as fotos dos
+perfis, os comentários lidos e os vídeos dos stories. O selo no topo diz até quando vão os dados.
 
 ## Como rodar
 
@@ -38,8 +39,12 @@ Se existir `data/radar.db` ao lado do código, ele é usado no lugar da demonstr
 O GitHub Pages só entrega arquivos, sem Python. `python -m radar site` grava o painel inteiro em `site/`: a página e,
 em `site/api/`, a resposta que o servidor daria a cada pedido das telas (as fileiras em cada filtro, a ficha de cada
 menção, a página de cada conta e de cada município, o mapa e os setores). No navegador, `radar/web/estatico.js` lê
-esses arquivos no lugar do servidor, e a busca roda na própria página. Os dados são os do momento em que o site foi
+esses arquivos no lugar do servidor, e a busca roda na própria página. As imagens já baixadas vão junto, em
+`site/capa/` e `site/foto/`, e a mídia dos stories, em `site/midia/`. Os dados são os do momento em que o site foi
 gerado; o selo no topo diz até quando.
+
+O site publicado sai do projeto da coleta, que tem o mesmo comando e a base inteira. Aqui, o comando gera o site com
+o banco de demonstração.
 
 Para publicar, o conteúdo de `site/` vai para o ramo `gh-pages`:
 
@@ -60,10 +65,11 @@ git push -f https://github.com/LPKramer/RadarRep.git gh-pages
 - 45 matérias de 22 sites de notícia;
 - a análise da IA de cada uma (tema, setor, sentimento, alcance, municípios, resumo);
 - as 64 contas e sites que as publicaram;
-- os 139 municípios do Tocantins.
+- os 139 municípios do Tocantins;
+- em `demo/capas/`, as capas de 54 dos 59 posts e stories e as fotos das 45 contas do Instagram.
 
-Ficam de fora o resto da coleta, os comentários (texto de terceiros), as bios das contas e as imagens. Sem imagem,
-cada cartão vira um cartaz com a manchete.
+Ficam de fora o resto da coleta, os comentários (texto de terceiros) e as bios das contas. As matérias de sites e 5
+posts não têm imagem: o cartão vira um cartaz com a manchete.
 
 ## O que tem em cada tela
 
