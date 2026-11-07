@@ -1,6 +1,7 @@
 // O painel sem servidor (GitHub Pages). radar/estatico.py gravou em api/ as respostas que o servidor (radar/painel.py)
 // daria; aqui cada pedido do app.js vira a leitura de um desses arquivos, com os filtros tratados como o servidor os
-// trata: valor vazio não conta, e período, sentimento ou página inválidos ficam no padrão.
+// trata: valor vazio não conta, e período, sentimento ou página inválidos ficam no padrão. As imagens ficam em capa/ e
+// foto/.
 'use strict'
 
 window.radarEstatico = (() => {
@@ -110,5 +111,8 @@ window.radarEstatico = (() => {
     throw falha(404)
   }
 
-  return { api, nomeArquivo }
+  // A capa do post (tipo "capa") ou a foto da conta ("foto"), com o mesmo nome de arquivo dos dados.
+  const imagem = (tipo, chave) => `${tipo}/${nomeArquivo(chave)}.jpg`
+
+  return { api, nomeArquivo, imagem }
 })()
