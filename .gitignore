@@ -1,0 +1,11 @@
+# Dados da coleta (banco, capas, stories): ficam fora do repositório. O banco de demonstração (demo/radar.db) entra.
+data/
+*.db
+*.db-wal
+*.db-shm
+!demo/radar.db
+demo/capas/
+.env
+__pycache__/
+*.pyc
+.venv/

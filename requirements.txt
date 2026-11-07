@@ -1,0 +1,4 @@
+unidecode>=1.3
+pillow>=10
+pandas>=2.0
+truststore>=0.9  # opcional: usa os certificados do Windows ao baixar as capas

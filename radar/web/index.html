@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#0b1621">
+  <title>Radar Energisa</title>
+  <link rel="icon" href="/marca/simbolo.svg" type="image/svg+xml">
+  <link rel="icon" href="/marca/simbolo-64.png" sizes="64x64" type="image/png">
+  <link rel="apple-touch-icon" href="/marca/simbolo-180.png">
+  <link rel="preload" href="/fontes/BarlowCondensed-ExtraBold.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="preload" href="/fontes/Barlow_400Regular.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="stylesheet" href="/estilo.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <a class="pular" href="#conteudo">Pular para o conteúdo</a>
+
+  <!-- Degradê do numeral do Top 10: os dois laranjas da planilha de cores da Energisa. -->
+  <svg class="defs" aria-hidden="true" focusable="false">
+    <defs>
+      <linearGradient id="degrade-top10" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#f99c1c"/>
+        <stop offset="1" stop-color="#f37021"/>
+      </linearGradient>
+    </defs>
+  </svg>
+
+  <header class="topo" id="topo">
+    <a class="marca" href="#/" aria-label="Radar Energisa, início">
+      <img src="/marca/energisa.svg" alt="" width="98" height="32"><span>Radar</span>
+    </a>
+    <nav class="menu" aria-label="Seções">
+      <a href="#/" data-secao="inicio">Início</a>
+      <a href="#/ver/mencoes" data-secao="mencoes">Menções</a>
+      <a href="#/setores" data-secao="setores">Setores</a>
+      <a href="#/ver/noticias" data-secao="noticias">Notícias</a>
+      <a href="#/ver/reels" data-secao="reels">Reels</a>
+      <a href="#/ver/stories" data-secao="stories">Stories</a>
+      <a href="#/contas" data-secao="contas">Contas</a>
+      <a href="#/mapa" data-secao="mapa">Mapa</a>
+      <a href="#/busca" data-secao="busca" class="so-celular">Buscar</a>
+    </nav>
+    <div class="ferramentas">
+      <input class="campo-busca" id="busca" type="search" placeholder="Buscar" aria-label="Buscar nas menções à Energisa e nas contas que as publicaram"
+             autocomplete="off" spellcheck="false">
+      <span class="ao-vivo" id="ao-vivo"></span>
+    </div>
+  </header>
+
+  <main id="conteudo" tabindex="-1"></main>
+
+  <div class="novidades-caixa">
+    <button class="novidades" id="novidades" type="button" hidden></button>
+    <span class="so-leitor" id="anuncio" role="status" aria-atomic="true"></span>
+  </div>
+
+  <div class="previa" id="previa" aria-hidden="true"></div>
+
+  <dialog class="modal" id="modal" aria-labelledby="modal-titulo"></dialog>
+</body>
+</html>
