@@ -9,6 +9,9 @@ Este repositório tem **só a visualização** e um banco de demonstração com 
 contas, a leitura dos stories, a busca de matérias e a análise das menções pela IA) não está aqui. O painel lê o banco
 `radar.db` que a coleta do Radar gera, sem gravar nada nele, e pode ficar aberto enquanto ela roda.
 
+**Ver no navegador, sem instalar nada:** https://lpkramer.github.io/RadarRep/ (o painel com as notícias de
+demonstração, publicado pelo GitHub Pages).
+
 ## Como rodar
 
 Precisa do Python 3.11 ou mais novo.
@@ -29,6 +32,25 @@ python -m radar capas                            # baixa agora as capas e fotos 
 
 Se existir `data/radar.db` ao lado do código, ele é usado no lugar da demonstração. A pasta `data/` está no
 `.gitignore`.
+
+## Site estático (GitHub Pages)
+
+O GitHub Pages só entrega arquivos, sem Python. `python -m radar site` grava o painel inteiro em `site/`: a página e,
+em `site/api/`, a resposta que o servidor daria a cada pedido das telas (as fileiras em cada filtro, a ficha de cada
+menção, a página de cada conta e de cada município, o mapa e os setores). No navegador, `radar/web/estatico.js` lê
+esses arquivos no lugar do servidor, e a busca roda na própria página. Os dados são os do momento em que o site foi
+gerado; o selo no topo diz até quando.
+
+Para publicar, o conteúdo de `site/` vai para o ramo `gh-pages`:
+
+```powershell
+python -m radar site
+cd site
+git init -b gh-pages
+git add -A
+git commit -m "Site do painel"
+git push -f https://github.com/LPKramer/RadarRep.git gh-pages
+```
 
 ## Notícias de demonstração
 
@@ -76,7 +98,8 @@ rede de distribuição do Instagram, sem login (`radar/capas.py`).
 ```
 radar/
   painel.py        servidor e consultas (API em /api/...)
-  web/             a página: index.html, app.js, estilo.css, fontes e marca
+  web/             a página: index.html, app.js, estilo.css, fontes e marca; estatico.js no site sem servidor
+  estatico.py      o painel sem servidor, para o GitHub Pages
   capas.py         imagens das menções e fotos dos perfis
   localizacao.py   município aproximado de cada menção e conta
   app_dados.py     mapa do Tocantins em SVG (malha do IBGE em dados/)

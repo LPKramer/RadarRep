@@ -9,3 +9,4 @@ demo/capas/
 __pycache__/
 *.pyc
 .venv/
+site/

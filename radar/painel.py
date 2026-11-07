@@ -738,6 +738,39 @@ def status(con, apos: int | None = None, agora=None) -> dict:
     }
 
 
+# --- API ------------------------------------------------------------------------------------
+
+def responder(con, rota: str, q: dict, agora=None) -> dict | None:
+    """A resposta de /api/<rota>?<q> (None: não encontrado). `q` vem como o parse_qs a deixa: sem os valores vazios,
+    e o último valor de cada chave. O servidor e o site estático (estatico.py) respondem por aqui."""
+    recurso, _, valor = rota.partition("/")
+    pagina = int(q.get("pagina") or 0) if str(q.get("pagina") or "0").isdigit() else 0
+    if recurso == "status":
+        apos = q.get("apos")
+        return status(con, int(apos) if apos and apos.isdigit() else None, agora)
+    if recurso == "inicio":
+        return inicio(con, agora)
+    if recurso == "linha" and valor:
+        return linha(con, valor, pagina, {k: q[k] for k in SOBREPOR if k in q}, agora=agora)
+    if recurso == "post" and valor:
+        return post(con, valor, agora)
+    if recurso == "conta" and valor:
+        return conta(con, valor.lower(), agora)
+    if recurso == "contas":
+        return lista_contas(con, q.get("tipo") or None, pagina, ordem=q.get("ordem") or "seguidores")
+    if recurso == "setores":
+        return setores(con, _dias(q.get("dias")), q.get("sentimento") or None, agora)
+    if recurso == "mapa":
+        return mapa(con, q.get("camada") or "mencoes", _dias(q.get("dias")), q.get("sentimento") or None, agora)
+    if recurso == "mapa-base":
+        return mapa_base(con)
+    if recurso == "municipio" and valor.isdigit():
+        return municipio(con, int(valor), agora)
+    if recurso == "busca":
+        return busca(con, q.get("q", ""), agora)
+    return None
+
+
 # --- Servidor -------------------------------------------------------------------------------
 
 _travas: dict[Path, threading.Lock] = {}
@@ -802,35 +835,9 @@ class Painel(BaseHTTPRequestHandler):
                 pass
 
     def _api(self, rota: str, q: dict):
-        recurso, _, valor = rota.partition("/")
-        pagina = int(q.get("pagina") or 0) if str(q.get("pagina") or "0").isdigit() else 0
         con = self._conexao()
         try:
-            if recurso == "status":
-                apos = q.get("apos")
-                dados = status(con, int(apos) if apos and apos.isdigit() else None)
-            elif recurso == "inicio":
-                dados = inicio(con)
-            elif recurso == "linha" and valor:
-                dados = linha(con, valor, pagina, {k: q[k] for k in SOBREPOR if k in q})
-            elif recurso == "post" and valor:
-                dados = post(con, valor)
-            elif recurso == "conta" and valor:
-                dados = conta(con, valor.lower())
-            elif recurso == "contas":
-                dados = lista_contas(con, q.get("tipo") or None, pagina, ordem=q.get("ordem") or "seguidores")
-            elif recurso == "setores":
-                dados = setores(con, _dias(q.get("dias")), q.get("sentimento") or None)
-            elif recurso == "mapa":
-                dados = mapa(con, q.get("camada") or "mencoes", _dias(q.get("dias")), q.get("sentimento") or None)
-            elif recurso == "mapa-base":
-                dados = mapa_base(con)
-            elif recurso == "municipio" and valor.isdigit():
-                dados = municipio(con, int(valor))
-            elif recurso == "busca":
-                dados = busca(con, q.get("q", ""))
-            else:
-                dados = None
+            dados = responder(con, rota, q)
         finally:
             con.close()
         if dados is None:

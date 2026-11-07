@@ -4,13 +4,13 @@
    Cor carrega informação: azul = navegação e foco; laranja = ao vivo, novidades e ranking; vermelho, cinza e verde =
    sentimento da menção, sempre com a palavra. */
 
-@font-face { font-family: "Barlow"; src: url("/fontes/Barlow_400Regular.ttf") format("truetype"); font-weight: 400; font-display: swap; }
-@font-face { font-family: "Barlow"; src: url("/fontes/Barlow_500Medium.ttf") format("truetype"); font-weight: 500; font-display: swap; }
-@font-face { font-family: "Barlow"; src: url("/fontes/Barlow_600SemiBold.ttf") format("truetype"); font-weight: 600; font-display: swap; }
-@font-face { font-family: "Barlow"; src: url("/fontes/Barlow_700Bold.ttf") format("truetype"); font-weight: 700; font-display: swap; }
-@font-face { font-family: "Barlow Condensed"; src: url("/fontes/BarlowCondensed-SemiBold.ttf") format("truetype"); font-weight: 600; font-display: swap; }
-@font-face { font-family: "Barlow Condensed"; src: url("/fontes/BarlowCondensed-Bold.ttf") format("truetype"); font-weight: 700; font-display: swap; }
-@font-face { font-family: "Barlow Condensed"; src: url("/fontes/BarlowCondensed-ExtraBold.ttf") format("truetype"); font-weight: 800; font-display: swap; }
+@font-face { font-family: "Barlow"; src: url("fontes/Barlow_400Regular.ttf") format("truetype"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Barlow"; src: url("fontes/Barlow_500Medium.ttf") format("truetype"); font-weight: 500; font-display: swap; }
+@font-face { font-family: "Barlow"; src: url("fontes/Barlow_600SemiBold.ttf") format("truetype"); font-weight: 600; font-display: swap; }
+@font-face { font-family: "Barlow"; src: url("fontes/Barlow_700Bold.ttf") format("truetype"); font-weight: 700; font-display: swap; }
+@font-face { font-family: "Barlow Condensed"; src: url("fontes/BarlowCondensed-SemiBold.ttf") format("truetype"); font-weight: 600; font-display: swap; }
+@font-face { font-family: "Barlow Condensed"; src: url("fontes/BarlowCondensed-Bold.ttf") format("truetype"); font-weight: 700; font-display: swap; }
+@font-face { font-family: "Barlow Condensed"; src: url("fontes/BarlowCondensed-ExtraBold.ttf") format("truetype"); font-weight: 800; font-display: swap; }
 
 :root {
   color-scheme: dark;
@@ -53,7 +53,7 @@
   --lento: 400ms;
   --curva: cubic-bezier(0.2, 0.7, 0.2, 1);
   --sombra: 0 22px 50px rgb(0 0 0 / 0.55);
-  --simbolo: url("/marca/simbolo.svg");
+  --simbolo: url("marca/simbolo.svg");
   --ruido: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.6'/%3E%3C/svg%3E");
 }
 

@@ -4,9 +4,11 @@
     python -m radar painel --banco D:/radar.db     com o banco em outro lugar
     python -m radar painel --rede                  também no celular, na mesma rede Wi-Fi
     python -m radar capas                          baixa agora as capas e fotos que faltam
+    python -m radar site                           grava o painel sem servidor em site/, para o GitHub Pages
 """
 import argparse
 import os
+from pathlib import Path
 
 
 def main(argv=None) -> None:
@@ -21,6 +23,8 @@ def main(argv=None) -> None:
     painel.add_argument("--sem-abrir", action="store_true", help="Não abre o navegador sozinho.")
     capas = comandos.add_parser("capas", parents=[comum], help="Baixa agora as capas e fotos que faltam.")
     capas.add_argument("--limite", type=int, default=2000, help="Máximo de imagens nesta rodada.")
+    site = comandos.add_parser("site", parents=[comum], help="Grava o painel sem servidor, para o GitHub Pages.")
+    site.add_argument("--saida", default="site", help="Pasta do site (padrão: site/).")
     args = analisador.parse_args(argv)
 
     # Antes de importar o painel: a configuração lê estas variáveis na importação.
@@ -34,6 +38,13 @@ def main(argv=None) -> None:
         painel_mod.servir(args.porta, rede=args.rede, abrir=not args.sem_abrir)
         return
     con = db.conectar_leitura()
+    if args.comando == "site":
+        from . import estatico
+        feito = estatico.exportar(con, Path(args.saida))
+        print(f"Site em {Path(args.saida).resolve()}: {feito['mencoes']} menções, {feito['arquivos']} arquivos de "
+              f"dados ({feito['bytes'] / 1e6:.1f} MB). Para ver antes de publicar: "
+              f"python -m http.server --directory {args.saida}")
+        return
     feitos = capas_mod.rodada(con, limite=args.limite)
     apagadas = capas_mod.limpar(con)
     print(f"{feitos['baixadas']} imagens baixadas, {feitos['falhas']} falharam (endereço vencido ou sem rede), "

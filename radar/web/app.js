@@ -79,8 +79,15 @@ function quando(iso) {
 }
 const dataCompleta = (iso) => (iso ? fmtData.format(new Date(iso)) : '')
 
+// No GitHub Pages não há servidor: o estatico.js responde com os arquivos que `python -m radar site` gravou.
+const estatico = window.radarEstatico
+const SEM_RESPOSTA = estatico
+  ? 'Os dados do painel não carregaram. Recarregue a página.'
+  : 'O painel não respondeu. Confira se o comando python -m radar painel continua aberto.'
+
 async function api(caminho) {
-  const resposta = await fetch('/api/' + caminho, { cache: 'no-store' })
+  if (estatico) return estatico.api(caminho)
+  const resposta = await fetch('api/' + caminho, { cache: 'no-store' })
   if (!resposta.ok) {
     const erro = new Error(`HTTP ${resposta.status}`)
     erro.status = resposta.status
@@ -119,7 +126,7 @@ function cardPost(p, formato = 'post', prefixo = '') {
     sentimento ? `menção ${ROT.sentimento[sentimento].toLowerCase()}` : '', meta].filter(Boolean).join(', ')
   return `<button class="card" type="button" data-formato="${formato}" data-post="${esc(p.id)}"${cor ? ` style="--cor:${cor}"` : ''} aria-label="${esc(rotulo)}">`
     + cartaz(textoCartaz(p, formato), cor)
-    + (p.capa ? `<img class="card-midia" src="/capa/${enc(p.id)}" alt="" loading="lazy" decoding="async" data-cai>` : '')
+    + (p.capa ? `<img class="card-midia" src="capa/${enc(p.id)}" alt="" loading="lazy" decoding="async" data-cai>` : '')
     + (sentimento ? `<span class="card-faixa"></span><span class="card-selo">${ROT.sentimento[sentimento]}</span>` : '')
     + `<span class="card-rodape"><span class="card-conta">${esc(autor(p))}</span><span class="card-meta">${esc(meta)}</span></span>`
     + '</button>'
@@ -139,7 +146,7 @@ function cardConta(c) {
   const rotulo = [`${c.nome || c.username}, @${c.username}`, mencoes, negativas, seguidores].filter(Boolean).join(', ')
   return `<a class="card" data-formato="conta" href="#/conta/${enc(c.username)}" aria-label="${esc(rotulo)}">`
     + `<span class="cartaz cartaz-iniciais" aria-hidden="true"><span>${esc(iniciais(c))}</span></span>`
-    + (c.foto ? `<img class="card-midia" src="/foto/${enc(c.username)}" alt="" loading="lazy" decoding="async" data-cai>` : '')
+    + (c.foto ? `<img class="card-midia" src="foto/${enc(c.username)}" alt="" loading="lazy" decoding="async" data-cai>` : '')
     + `<span class="card-rodape"><span class="card-conta">${esc(c.nome || '@' + c.username)}</span>`
     + `<span class="card-meta">${esc([mencoes, negativas].filter(Boolean).join(' · ') || seguidores || '@' + c.username)}</span></span></a>`
 }
@@ -231,7 +238,7 @@ function slideHTML(d) {
         ${linkSeguro(d.link) ? `<a class="botao botao-secundario" href="${esc(d.link)}" target="_blank" rel="noopener">${textoLink(d)}</a>` : ''}
       </div>
     </div>
-    ${d.capa ? `<div class="hero-capa" data-cai-caixa><img src="/capa/${enc(d.id)}" alt="" data-cai></div>` : ''}
+    ${d.capa ? `<div class="hero-capa" data-cai-caixa><img src="capa/${enc(d.id)}" alt="" data-cai></div>` : ''}
   </div>`
 }
 
@@ -253,7 +260,7 @@ function iniciarHero(lista) {
     hero.style.setProperty('--cor', sentimento ? COR[sentimento] : 'var(--destaque-texto)')
     hero.toggleAttribute('data-capa', Boolean(d.capa))
     hero.querySelector('.hero-fundo').innerHTML = d.capa
-      ? `<span class="hero-brilho"></span><img src="/capa/${enc(d.id)}" alt="" data-cai>`
+      ? `<span class="hero-brilho"></span><img src="capa/${enc(d.id)}" alt="" data-cai>`
       : '<span class="hero-brilho"></span>'
     hero.querySelector('.hero-palco').innerHTML = slideHTML(d)
     hero.querySelectorAll('[data-destaque]').forEach((b, j) => b.setAttribute('aria-current', String(j === i)))
@@ -280,7 +287,7 @@ function previaHTML(p) {
   const texto = p.mencao?.resumo || p.titulo
   const conta = `${autor(p)}${ehSite(p) ? ' · site de notícias' : p.tipoConta && ROT.tipo[p.tipoConta] ? ' · ' + ROT.tipo[p.tipoConta] : ''}`
   return `<div class="previa-midia" data-abrir="${esc(p.id)}">${cartaz(textoCartaz(p, 'mencao'), sentimento ? COR[sentimento] : '')}`
-    + (p.capa ? `<img src="/capa/${enc(p.id)}" alt="" data-cai>` : '') + '</div>'
+    + (p.capa ? `<img src="capa/${enc(p.id)}" alt="" data-cai>` : '') + '</div>'
     + `<div class="previa-corpo"><div class="previa-acoes"><button class="botao botao-primario botao-p" type="button" data-abrir="${esc(p.id)}" tabindex="-1">Detalhes</button>`
     + (linkSeguro(p.link) ? `<a class="botao botao-secundario botao-p" href="${esc(p.link)}" target="_blank" rel="noopener" tabindex="-1">${ehSite(p) ? 'Matéria' : 'Instagram'}</a>` : '')
     + `</div><p class="previa-meta">${meta}</p>${texto ? `<p class="previa-texto">${esc(texto)}</p>` : ''}<p class="previa-conta">${esc(conta)}</p></div>`
@@ -393,10 +400,10 @@ function fichaHTML(p) {
   const site = ehSite(p)
 
   let frente = ''
-  if (p.midia?.tipo === 'video') frente = `<video class="frente" src="${p.midia.url}" controls preload="none" playsinline${p.capa ? ` poster="/capa/${id}"` : ''}></video>`
+  if (p.midia?.tipo === 'video') frente = `<video class="frente" src="${p.midia.url}" controls preload="none" playsinline${p.capa ? ` poster="capa/${id}"` : ''}></video>`
   else if (p.midia?.tipo === 'imagem') frente = `<img class="frente" src="${p.midia.url}" alt="">`
-  else if (p.capa) frente = `<img class="frente" src="/capa/${id}" alt="" data-cai>`
-  const fundo = p.capa ? `<img class="fundo" src="/capa/${id}" alt="" data-cai>` : cartaz('', cor)
+  else if (p.capa) frente = `<img class="frente" src="capa/${id}" alt="" data-cai>`
+  const fundo = p.capa ? `<img class="fundo" src="capa/${id}" alt="" data-cai>` : cartaz('', cor)
 
   const linhaChamada = m
     ? chamada([`<span class="forte">Menção ${ROT.sentimento[sentimento].toLowerCase()}</span>`, esc((m.municipios || []).slice(0, 3).join(', ')), esc(quando(p.data))])
@@ -493,7 +500,7 @@ async function abrirModal(id) {
     if (modal.dataset.id !== id) return
     modal.querySelector('.modal-estado').textContent = erro.status === 404
       ? 'Este post não está mais no banco.'
-      : 'O painel não respondeu. Confira se o comando python -m radar painel continua aberto.'
+      : SEM_RESPOSTA
   }
 }
 
@@ -591,7 +598,7 @@ addEventListener('popstate', sincronizar)
 function erroHTML(erro) {
   return erro?.status === 404
     ? '<div class="erro"><b>Não encontrado</b>Esse item não está no banco do radar.</div>'
-    : '<div class="erro"><b>Sem resposta</b>O painel não respondeu. Confira se o comando python -m radar painel continua aberto.</div>'
+    : `<div class="erro"><b>Sem resposta</b>${SEM_RESPOSTA}</div>`
 }
 
 async function renderizar(partes, params, minha) {
@@ -749,7 +756,7 @@ async function paginaConta(username, pronto) {
   const c = await api('conta/' + enc(username))
   if (!pronto()) return
   document.title = `@${c.username} · Radar`
-  const foto = c.foto ? `<img src="/foto/${enc(c.username)}" alt="" data-cai>` : ''
+  const foto = c.foto ? `<img src="foto/${enc(c.username)}" alt="" data-cai>` : ''
   const fatos = [
     `<span><b>${inteiro(c.mencoes || 0)}</b>${plural(c.mencoes || 0, 'menção', 'menções')} à Energisa</span>`,
     c.negativas ? `<span><b>${inteiro(c.negativas)}</b>${plural(c.negativas, 'negativa', 'negativas')}</span>` : '',
@@ -903,7 +910,7 @@ function pontosHTML(dados) {
     return dados.pontos.map((p, i) => {
       const r = raioPerfil(p.seguidores)
       const foto = comFoto.has(p.username)
-        ? `<image href="/foto/${enc(p.username)}" x="${-r}" y="${-r}" width="${2 * r}" height="${2 * r}" clip-path="url(#recorte-redondo)" preserveAspectRatio="xMidYMid slice"/>`
+        ? `<image href="foto/${enc(p.username)}" x="${-r}" y="${-r}" width="${2 * r}" height="${2 * r}" clip-path="url(#recorte-redondo)" preserveAspectRatio="xMidYMid slice"/>`
         : ''
       return `<g class="ponto" data-i="${i}"${foto ? ' data-foto' : ''} transform="translate(${p.x} ${p.y})"><circle r="${r}"/>${foto}</g>`
     }).join('')
@@ -917,14 +924,14 @@ function pontosHTML(dados) {
 
 function dicaHTML(p, camada, nomes) {
   if (camada === 'perfis') {
-    return `${p.foto ? `<img src="/foto/${enc(p.username)}" alt="">` : ''}<div><b>${esc(p.nome || '@' + p.username)}</b>`
+    return `${p.foto ? `<img src="foto/${enc(p.username)}" alt="">` : ''}<div><b>${esc(p.nome || '@' + p.username)}</b>`
       + `<span>@${esc(p.username)}${p.seguidores != null ? ` · ${compacto(p.seguidores)} seguidores` : ''}</span>`
       + `<span>${inteiro(p.mencoes || 0)} ${plural(p.mencoes || 0, 'menção', 'menções')} à Energisa${p.negativas ? `, ${p.negativas} ${plural(p.negativas, 'negativa', 'negativas')}` : ''}</span>`
       + `<span>${esc(nomes.get(p.municipio) || '')}</span></div>`
   }
   const sentimento = p.sentimento ? `<span class="forte">Menção ${ROT.sentimento[p.sentimento].toLowerCase()}</span>` : ''
   const numeros = p.views ? `${compacto(p.views)} visualizações` : `${compacto(p.interacoes)} ${plural(p.interacoes, 'interação', 'interações')}`
-  return `${p.capa ? `<img src="/capa/${enc(p.id)}" alt="">` : ''}<div>${sentimento}<b>${esc(p.titulo || '@' + p.conta)}</b>`
+  return `${p.capa ? `<img src="capa/${enc(p.id)}" alt="">` : ''}<div>${sentimento}<b>${esc(p.titulo || '@' + p.conta)}</b>`
     + `<span>${esc(autor(p))} · ${esc(quando(p.data))}${ehSite(p) ? '' : ` · ${numeros}`}</span>`
     + `<span>${esc(nomes.get(p.municipio) || '')} ${esc(FONTE_LOCAL[p.fonte] || '')}</span></div>`
 }
@@ -1220,6 +1227,11 @@ async function atualizarStatus() {
   if (document.hidden) return
   try {
     const s = await api('status' + (ultimoId ? `?apos=${ultimoId}` : ''))
+    if (s.estatico) { // site sem servidor: os dados são do momento em que ele foi gerado
+      aoVivo.dataset.estado = 'parado'
+      aoVivo.textContent = `Dados até ${fmtDia.format(new Date(s.agora + 'Z')).replace('.', '')}`
+      return
+    }
     if (ultimoId == null) ultimoId = s.ultimoId
     const parado = quando(s.ultimaVisita)
     aoVivo.dataset.estado = s.aoVivo ? 'vivo' : 'parado'
@@ -1245,7 +1257,7 @@ botaoNovidades.addEventListener('click', () => {
   sincronizar()
   atualizarStatus()
 })
-setInterval(atualizarStatus, 30000)
+if (!estatico) setInterval(atualizarStatus, 30000)
 document.addEventListener('visibilitychange', () => { if (!document.hidden) atualizarStatus() })
 
 sincronizar()
