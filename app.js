@@ -446,7 +446,8 @@ function fichaHTML(p) {
 
   const reacao = m?.reacao
     ? `<section class="secao" style="--cor:${COR_REACAO[m.reacao] || 'var(--texto)'}"><h3 class="secao-titulo"><span class="forte">${esc(ROT.reacao[m.reacao] || m.reacao)}</span></h3>`
-      + `${m.reacaoResumo ? `<p>${esc(m.reacaoResumo)}</p>` : ''}${m.comentariosLidos ? `<p class="contagem">Leitura de ${m.comentariosLidos} ${plural(m.comentariosLidos, 'comentário', 'comentários')}</p>` : ''}</section>`
+      + `${m.reacaoResumo ? `<p>${esc(m.reacaoResumo)}</p>` : ''}${m.comentariosLidos ? `<p class="contagem">Leitura de ${m.comentariosLidos} ${plural(m.comentariosLidos, 'comentário', 'comentários')}</p>` : ''}`
+      + `${m.comentariosSentimento ? `<p class="contagem">${Math.round(100 * m.comentariosSentimento.negativos / m.comentariosSentimento.analisados)}% negativos${m.comentariosSentimento.relatos ? ` · ${inteiro(m.comentariosSentimento.relatos)} ${plural(m.comentariosSentimento.relatos, 'relato', 'relatos')} de falta de luz${m.comentariosSentimento.locais.length ? `: ${esc(m.comentariosSentimento.locais.join(', '))}` : ''}` : ''}</p>` : ''}</section>`
     : ''
   const repercussao = m && m.repercutiram != null
     ? `<section class="secao"><h3 class="secao-titulo">Repercussão</h3>${numerosHTML([
@@ -455,7 +456,7 @@ function fichaHTML(p) {
     ])}</section>`
     : ''
   const comentarios = p.textosComentarios?.length
-    ? `<section class="secao"><h3 class="secao-titulo">Comentários</h3><ul class="comentarios">${p.textosComentarios.map((t) => `<li>${esc(t.texto)}${t.curtidas ? `<small>${inteiro(t.curtidas)} ${plural(t.curtidas, 'curtida', 'curtidas')}</small>` : ''}</li>`).join('')}</ul></section>`
+    ? `<section class="secao"><h3 class="secao-titulo">Comentários</h3><ul class="comentarios">${p.textosComentarios.map((t) => `<li${COR[t.sentimento] && t.sentimento !== 'neutro' ? ` style="box-shadow: inset 3px 0 0 ${COR[t.sentimento]}"` : ''}>${esc(t.texto)}${t.curtidas ? `<small>${inteiro(t.curtidas)} ${plural(t.curtidas, 'curtida', 'curtidas')}</small>` : ''}</li>`).join('')}</ul></section>`
     : ''
   const mais = p.maisDaConta?.length
     ? `<section class="secao"><h3 class="secao-titulo">Mais de ${esc(autor(p))}</h3><div class="mini-grade">${p.maisDaConta.map((x) => cardPost(x, 'post')).join('')}</div></section>`
@@ -863,13 +864,15 @@ async function paginaSetores(params, pronto) {
 }
 
 // ---------- Mapa ----------
-// Cada menção à Energisa (ou conta que publicou uma) é um ponto no município onde fica (localização aproximada, feita
-// no servidor). A cor do município diz quantos itens ele tem; a lista ao lado é a mesma informação em texto, para
-// teclado e leitor de tela.
+// Cada menção à Energisa (ou conta que publicou uma, ou conta da base) é um ponto no município onde fica (localização
+// aproximada, feita no servidor). A cor do município diz quantos itens ele tem; a lista ao lado é a mesma informação
+// em texto, para teclado e leitor de tela.
 const CAMADAS_MAPA = {
   mencoes: { rotulo: 'Menções', unidade: ['menção', 'menções'], dias: DIAS_MENCOES },
   perfis: { rotulo: 'Contas que falam da Energisa', unidade: ['conta', 'contas'], dias: null },
+  base: { rotulo: 'Contas da base', unidade: ['conta', 'contas'], dias: null },
 }
+const deContas = (camada) => camada === 'perfis' || camada === 'base'
 const RAMPA = ['#1a3b54', '#1d4f6d', '#1e6688', '#2484aa'] // do Azul BI ao Azul [Logo]
 const SEM_VALOR = '#152738'
 const FOTOS_NO_MAPA = 150 // perfis com foto no mapa: os mais seguidos (cada foto é um pedido)
@@ -888,7 +891,7 @@ function corDaFaixa(n, faixas) {
 
 function legendaDaCamada(camada, faixas) {
   const itens = []
-  if (camada !== 'perfis') {
+  if (!deContas(camada)) {
     itens.push('<span><i style="--c:var(--texto-2)"></i>local no post</span><span><i class="vazado" style="--c:var(--texto-2)"></i>cidade da conta</span>')
     itens.push(...['negativo', 'neutro', 'positivo'].map((s) => `<span><i style="--c:${COR[s]}"></i>${ROT.sentimento[s].toLowerCase()}</span>`))
   } else {
@@ -907,7 +910,7 @@ function raioPerfil(seguidores) {
 }
 
 function pontosHTML(dados) {
-  if (dados.camada === 'perfis') {
+  if (deContas(dados.camada)) {
     const comFoto = new Set(dados.pontos.filter((p) => p.foto).sort((a, b) => (b.seguidores || 0) - (a.seguidores || 0))
       .slice(0, FOTOS_NO_MAPA).map((p) => p.username))
     return dados.pontos.map((p, i) => {
@@ -926,10 +929,12 @@ function pontosHTML(dados) {
 }
 
 function dicaHTML(p, camada, nomes) {
-  if (camada === 'perfis') {
+  if (deContas(camada)) {
+    const tipo = camada === 'base' ? [ROT.tipo[p.tipo], p.monitorada ? 'monitorada' : ''].filter(Boolean).join(' · ') : ''
     return `${p.foto ? `<img src="${urlFoto(p.username)}" alt="">` : ''}<div><b>${esc(p.nome || '@' + p.username)}</b>`
       + `<span>@${esc(p.username)}${p.seguidores != null ? ` · ${compacto(p.seguidores)} seguidores` : ''}</span>`
-      + `<span>${inteiro(p.mencoes || 0)} ${plural(p.mencoes || 0, 'menção', 'menções')} à Energisa${p.negativas ? `, ${p.negativas} ${plural(p.negativas, 'negativa', 'negativas')}` : ''}</span>`
+      + (tipo ? `<span>${esc(tipo)}</span>` : '')
+      + (camada === 'perfis' || p.mencoes ? `<span>${inteiro(p.mencoes || 0)} ${plural(p.mencoes || 0, 'menção', 'menções')} à Energisa${p.negativas ? `, ${p.negativas} ${plural(p.negativas, 'negativa', 'negativas')}` : ''}</span>` : '')
       + `<span>${esc(nomes.get(p.municipio) || '')}</span></div>`
   }
   const sentimento = p.sentimento ? `<span class="forte">Menção ${ROT.sentimento[p.sentimento].toLowerCase()}</span>` : ''
@@ -1042,7 +1047,7 @@ function ativarMapa(quadro, dados, nomes, base) {
     e.preventDefault()
     e.stopPropagation()
     const p = dados.pontos[ponto.dataset.i]
-    if (dados.camada === 'perfis') navegar('#/conta/' + enc(p.username))
+    if (deContas(dados.camada)) navegar('#/conta/' + enc(p.username))
     else abrirPost(p.id)
   }, true)
   quadro.addEventListener('pointerover', (e) => {
@@ -1085,11 +1090,14 @@ async function paginaMapa(params, pronto) {
   if (cfg.dias) filtros.push(chips('dias', cfg.dias, dados.dias == null ? 'todos' : String(dados.dias)))
   if (camada === 'mencoes') filtros.push(chips('sentimento', SENTIMENTOS, dados.sentimento || '', COR))
   const ranking = dados.municipios.slice(0, 30).map((m, i) => `<li><a href="#/municipio/${m.id}"><span class="pos">${i + 1}</span><span class="nome">${esc(m.nome)}</span><span class="valor">${inteiro(m.n)}</span><span class="barra" style="--p:${Math.round((100 * m.n) / maximo)}%"></span></a></li>`).join('')
-  const vazio = { mencoes: 'Nenhuma menção com local nesse período.', perfis: 'Nenhuma conta com cidade conhecida.' }[camada]
+  const vazio = deContas(camada) ? 'Nenhuma conta com cidade conhecida.' : 'Nenhuma menção com local nesse período.'
   const proporcao = (base.largura / base.altura).toFixed(4)
+  const ondeTem = camada === 'base'
+    ? `<b>${inteiro(dados.municipios.length)}</b>de ${inteiro(base.municipios.length)} municípios${dados.populacao != null ? ` · <b>${fmtDecimal.format(100 * dados.populacao)}%</b>da população do TO` : ''}`
+    : `<b>${inteiro(dados.municipios.length)}</b>${plural(dados.municipios.length, 'município', 'municípios')}`
   conteudo.innerHTML = `<div class="pagina pagina-mapa">
     <div class="pagina-cabeca"><h1 class="pagina-titulo">Mapa</h1>
-      <p class="contagem"><b>${inteiro(dados.total)}</b>${esc(unidade(dados.total))} em <b>${inteiro(dados.municipios.length)}</b>${plural(dados.municipios.length, 'município', 'municípios')}${dados.semLocal ? ` · <b>${inteiro(dados.semLocal)}</b>sem local` : ''}</p></div>
+      <p class="contagem"><b>${inteiro(dados.total)}</b>${esc(unidade(dados.total))} em ${ondeTem}${dados.semLocal ? ` · <b>${inteiro(dados.semLocal)}</b>sem local` : ''}</p></div>
     <div class="filtros-linha">${filtros.join('')}</div>
     <div class="mapa-pagina">
       <figure class="mapa" style="margin:0">

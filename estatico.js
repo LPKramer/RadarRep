@@ -76,7 +76,8 @@ window.radarEstatico = (() => {
   async function mapa(q) {
     const dias = numeroDeDias(valor(q, 'dias'))
     const sentimento = valor(q, 'sentimento') || null
-    const nome = valor(q, 'camada') === 'perfis' ? 'perfis'
+    const camada = valor(q, 'camada')
+    const nome = camada === 'perfis' || camada === 'base' ? camada
       : `mencoes_${chaveDias(dias)}_${sentimentoValido(sentimento) || 'todas'}`
     return { ...(await ler(`api/mapa/${nome}.json`)), dias, sentimento } // o servidor devolve os filtros como vieram
   }

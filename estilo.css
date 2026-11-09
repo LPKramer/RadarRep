@@ -694,7 +694,7 @@ g.ponto:hover circle, g.ponto.ativo circle { stroke: var(--quente); stroke-width
   color: var(--texto-2);
 }
 .dica img { width: 64px; height: 80px; border-radius: 4px; object-fit: cover; background: var(--superficie-2); }
-.dica[data-camada="perfis"] img { width: 56px; height: 56px; border-radius: 50%; }
+.dica:is([data-camada="perfis"], [data-camada="base"]) img { width: 56px; height: 56px; border-radius: 50%; }
 .dica:not(:has(img)) { grid-template-columns: 1fr; }
 .dica b { display: block; margin-bottom: 4px; color: var(--texto); font-size: 14px; font-weight: 600; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .dica .forte { color: var(--cor, var(--texto)); font-weight: 600; }
