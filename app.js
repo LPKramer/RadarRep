@@ -117,7 +117,7 @@ function metaCartao(p, formato) {
   if (formato === 'story') return quando(p.data)
   if (ehSite(p)) return ['Matéria', quando(p.data)].join(' · ') // site não tem curtidas
   if (p.formato === 'Video' && p.views) return `${compacto(p.views)} visualizações`
-  return `${compacto(p.interacoes)} interações`
+  return `${compacto(p.interacoes)} ${plural(p.interacoes, 'interação', 'interações')}`
 }
 
 function cardPost(p, formato = 'post', prefixo = '') {
@@ -565,7 +565,7 @@ function navegar(hash, substituir = false) {
 
 function marcarMenu(partes) {
   let secao = partes[0] || 'inicio'
-  if (secao === 'ver') secao = { mencoes: 'mencoes', noticias: 'noticias', reels: 'reels', stories: 'stories' }[partes[1]] || (partes[1]?.startsWith('setor-') ? 'setores' : '')
+  if (secao === 'ver') secao = { recentes: 'recentes', mencoes: 'mencoes', noticias: 'noticias', reels: 'reels', stories: 'stories' }[partes[1]] || (partes[1]?.startsWith('setor-') ? 'setores' : '')
   if (secao === 'conta') secao = 'contas'
   if (secao === 'municipio' || secao === 'municipios') secao = 'mapa'
   document.querySelectorAll('.menu a').forEach((a) => {
@@ -654,12 +654,15 @@ function chips(nome, opcoes, atual, cores = {}) {
 
 const DIAS_MENCOES = [['7', '7 dias'], ['30', '30 dias'], ['90', '90 dias'], ['todos', 'Tudo']]
 const SENTIMENTOS = [['', 'Todas'], ['negativo', 'Negativas'], ['neutro', 'Neutras'], ['positivo', 'Positivas']]
+const rotuloPeriodo = (dias) => (dias === 1 ? '24 horas' : `${dias} dias`)
 
 function filtrosDaLinha(dados) {
   // Toda fileira é de menções à Energisa: período e sentimento valem para todas; a ordem, para as de cartão de post.
+  // A aba Recentes traz os períodos dela (curtos) e não filtra o sentimento.
   const f = dados.filtros || {}
   const dias = f.dias == null ? 'todos' : String(f.dias)
-  const grupos = [chips('dias', DIAS_MENCOES, dias), chips('sentimento', SENTIMENTOS, f.sentimento || '', COR)]
+  const grupos = dados.periodos ? [chips('dias', dados.periodos.map((d) => [String(d), rotuloPeriodo(d)]), dias)]
+    : [chips('dias', DIAS_MENCOES, dias), chips('sentimento', SENTIMENTOS, f.sentimento || '', COR)]
   if (dados.formato === 'post' || dados.formato === 'top10') {
     const ordens = f.ordem === 'views' || dados.id === 'reels'
       ? [['views', 'Mais vistos'], ['interacoes', 'Mais interações'], ['recentes', 'Mais recentes']]
@@ -718,9 +721,10 @@ async function paginaVer(id, params, pronto) {
   const formato = dados.formato === 'top10' ? 'post' : dados.formato
   const total = dados.itens.length
   const semFiltro = dados.filtros?.dias == null && !dados.filtros?.sentimento
-  const vazio = formato === 'story'
-    ? `Nenhum story sobre a Energisa ${semFiltro ? 'até agora' : 'com esses filtros'}.`
-    : 'Nada com esses filtros.'
+  const vazio = dados.periodos ? 'Nenhuma menção à Energisa nesse período.'
+    : formato === 'story'
+      ? `Nenhum story sobre a Energisa ${semFiltro ? 'até agora' : 'com esses filtros'}.`
+      : 'Nada com esses filtros.'
   conteudo.innerHTML = `<div class="pagina">
     <div class="pagina-cabeca"><h1 class="pagina-titulo">${esc(dados.titulo)}</h1></div>
     <div class="filtros-linha">${filtrosDaLinha(dados)}</div>

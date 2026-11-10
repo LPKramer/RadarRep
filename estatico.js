@@ -48,9 +48,13 @@ window.radarEstatico = (() => {
     const [itens, dados] = await Promise.all([ler('api/itens.json'), ler(`api/linha/${nomeArquivo(id)}.json`)])
     let { dias, sentimento, ordem } = dados.padrao
     const d = valor(q, 'dias')
-    if (d === 'todos') dias = null
-    else if (numeroDeDias(d) != null) dias = numeroDeDias(d)
-    sentimento = sentimentoValido(valor(q, 'sentimento')) || sentimento
+    if (dados.periodos) { // aba Recentes: só os períodos dela, e sem filtro de sentimento
+      if (dados.periodos.includes(numeroDeDias(d))) dias = numeroDeDias(d)
+    } else {
+      if (d === 'todos') dias = null
+      else if (numeroDeDias(d) != null) dias = numeroDeDias(d)
+      sentimento = sentimentoValido(valor(q, 'sentimento')) || sentimento
+    }
     ordem = valor(q, 'ordem') || ordem
     const chave = `${chaveDias(dias)}|${sentimento || ''}|${ORDENS.includes(ordem) ? ordem : 'recentes'}`
     const paginas = dados.vazia ? [[]] : dados.combos[chave]
@@ -58,6 +62,7 @@ window.radarEstatico = (() => {
     return {
       id, titulo: dados.titulo, formato: dados.formato, itens: (paginas[pagina] || []).map((i) => itens[i]),
       mais: pagina + 1 < paginas.length, filtros: { dias, sentimento: sentimento || null, ordem },
+      ...(dados.periodos ? { periodos: dados.periodos } : {}),
     }
   }
 
