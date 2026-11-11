@@ -449,7 +449,23 @@ function fichaHTML(p) {
       + `${m.reacaoResumo ? `<p>${esc(m.reacaoResumo)}</p>` : ''}${m.comentariosLidos ? `<p class="contagem">Leitura de ${m.comentariosLidos} ${plural(m.comentariosLidos, 'comentário', 'comentários')}</p>` : ''}`
       + `${m.comentariosSentimento ? `<p class="contagem">${Math.round(100 * m.comentariosSentimento.negativos / m.comentariosSentimento.analisados)}% negativos${m.comentariosSentimento.relatos ? ` · ${inteiro(m.comentariosSentimento.relatos)} ${plural(m.comentariosSentimento.relatos, 'relato', 'relatos')} de falta de luz${m.comentariosSentimento.locais.length ? `: ${esc(m.comentariosSentimento.locais.join(', '))}` : ''}` : ''}</p>` : ''}</section>`
     : ''
-  const repercussao = m && m.repercutiram != null
+  // A mesma notícia (fatos.py): os posts, stories e matérias do mesmo fato, com as interações somadas e os links.
+  const f = p.fato
+  const quem = (x) => (x.rede === 'web' ? x.conta : `@${x.conta}`)
+  const mesma = f
+    ? `<section class="secao"><h3 class="secao-titulo">A mesma notícia em ${inteiro(f.perfis)} ${plural(f.perfis, 'perfil', 'perfis')}</h3>${numerosHTML([
+      [inteiro(f.posts), plural(f.posts, 'post, story ou matéria', 'posts, stories e matérias')],
+      [compacto(f.interacoes), 'curtidas e comentários somados'],
+      f.visualizacoes ? [compacto(f.visualizacoes), 'visualizações somadas'] : null,
+      [quando(f.primeira.data), `primeira aparição, ${quem(f.primeira)}`],
+      [f.coberturaEstadual ? 'Sim' : 'Não', 'cobertura de portal estadual'],
+    ])}${p.mesmaNoticia?.length ? `<div class="mini-grade">${p.mesmaNoticia.map((x) => cardPost(x, 'post')).join('')}</div>` : ''}</section>`
+    : ''
+  // Vídeo de rádio (transcricao.py): os trechos da fala que tocam em energia, com o minuto.
+  const fala = p.falaNoVideo
+    ? `<section class="secao"><h3 class="secao-titulo">Fala no vídeo</h3><ul class="comentarios">${p.falaNoVideo.split(' (…) ').map((t) => `<li>${esc(t)}</li>`).join('')}</ul></section>`
+    : ''
+  const repercussao = !f && m && m.repercutiram != null
     ? `<section class="secao"><h3 class="secao-titulo">Repercussão</h3>${numerosHTML([
       [inteiro(m.repercutiram), plural(m.repercutiram, 'conta tratou do assunto em até 3 dias', 'contas trataram do assunto em até 3 dias')],
       [m.coberturaEstadual ? 'Sim' : 'Não', 'cobertura de portal estadual'],
@@ -483,7 +499,7 @@ function fichaHTML(p) {
         </div>
         <dl class="fatos">${fatos}</dl>
       </div>
-      ${numeros}${reacao}${repercussao}${comentarios}${mais}
+      ${numeros}${fala}${reacao}${mesma}${repercussao}${comentarios}${mais}
     </div>`
 }
 
