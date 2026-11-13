@@ -112,12 +112,23 @@ function textoCartaz(p, formato) {
   return p.titulo || p.mencao?.resumo || '@' + p.conta
 }
 
+// A mesma notícia em vários perfis (em todas as fileiras e no destaque): um cartão só, com as interações somadas.
+function outrosPerfis(p) {
+  return p.noticia?.perfis > 1 ? p.noticia.perfis - 1 : 0
+}
+
+// O story não mostra curtidas a quem não é o dono: o número dele é estimado (estimativa.py) e vem com "~".
+function textoInteracoes(p) {
+  return `${p.estimado ? '~' : ''}${compacto(p.interacoes)} ${plural(p.interacoes, 'interação', 'interações')}`
+}
+
 function metaCartao(p, formato) {
   if (formato === 'mencao') return [ROT.tema[p.mencao?.tema], quando(p.data)].filter(Boolean).join(' · ')
-  if (formato === 'story') return quando(p.data)
+  if (formato === 'story') return [quando(p.data), p.estimado ? textoInteracoes(p) : ''].filter(Boolean).join(' · ')
+  if (p.noticia) return `${compacto(p.noticia.interacoes)} ${plural(p.noticia.interacoes, 'interação', 'interações')}`
   if (ehSite(p)) return ['Matéria', quando(p.data)].join(' · ') // site não tem curtidas
   if (p.formato === 'Video' && p.views) return `${compacto(p.views)} visualizações`
-  return `${compacto(p.interacoes)} ${plural(p.interacoes, 'interação', 'interações')}`
+  return textoInteracoes(p)
 }
 
 function cardPost(p, formato = 'post', prefixo = '') {
@@ -125,13 +136,15 @@ function cardPost(p, formato = 'post', prefixo = '') {
   const sentimento = p.mencao?.sentimento
   const cor = sentimento ? COR[sentimento] : ''
   const meta = metaCartao(p, formato)
-  const rotulo = [prefixo, autor(p), ROT.formato[p.formato],
+  const outros = outrosPerfis(p)
+  const conta = outros ? `${autor(p)} +${outros}` : autor(p)
+  const rotulo = [prefixo, outros ? `${autor(p)} e mais ${outros} ${plural(outros, 'perfil', 'perfis')}` : autor(p), ROT.formato[p.formato],
     sentimento ? `menção ${ROT.sentimento[sentimento].toLowerCase()}` : '', meta].filter(Boolean).join(', ')
   return `<button class="card" type="button" data-formato="${formato}" data-post="${esc(p.id)}"${cor ? ` style="--cor:${cor}"` : ''} aria-label="${esc(rotulo)}">`
     + cartaz(textoCartaz(p, formato), cor)
     + (p.capa ? `<img class="card-midia" src="${urlCapa(p.id)}" alt="" loading="lazy" decoding="async" data-cai>` : '')
     + (sentimento ? `<span class="card-faixa"></span><span class="card-selo">${ROT.sentimento[sentimento]}</span>` : '')
-    + `<span class="card-rodape"><span class="card-conta">${esc(autor(p))}</span><span class="card-meta">${esc(meta)}</span></span>`
+    + `<span class="card-rodape"><span class="card-conta">${esc(conta)}</span><span class="card-meta">${esc(meta)}</span></span>`
     + '</button>'
 }
 
@@ -226,7 +239,10 @@ function slideHTML(d) {
     : chamada([`<span class="forte">${esc(ROT.formato[d.formato] || 'Post')}</span>`, esc(quando(d.data))])
   const fatos = [
     `<span><b>${esc(autor(d))}</b>${esc(ehSite(d) ? 'site de notícias' : ROT.tipo[d.tipoConta] || '')}</span>`,
-    ehSite(d) ? '' : `<span><b>${compacto(d.interacoes)}</b>${plural(d.interacoes, 'interação', 'interações')}</span>`,
+    d.noticia
+      ? `<span><b>${compacto(d.noticia.interacoes)}</b>${plural(d.noticia.interacoes, 'interação', 'interações')}</span>`
+        + `<span><b>${d.noticia.perfis}</b>${plural(d.noticia.perfis, 'perfil', 'perfis')}</span>`
+      : ehSite(d) ? '' : `<span><b>${d.estimado ? '~' : ''}${compacto(d.interacoes)}</b>${plural(d.interacoes, 'interação', 'interações')}${d.estimado ? ' estimadas' : ''}</span>`,
     d.views ? `<span><b>${compacto(d.views)}</b>visualizações</span>` : '',
     d.seguidores ? `<span><b>${compacto(d.seguidores)}</b>seguidores</span>` : '',
   ]
@@ -285,7 +301,7 @@ function previaHTML(p) {
   const meta = [
     sentimento ? `<span class="forte">${ROT.sentimento[sentimento]}</span>` : '',
     esc(ROT.formato[p.formato] || ''), esc(quando(p.data)),
-    ehSite(p) ? '' : p.views ? `${compacto(p.views)} visualizações` : `${compacto(p.interacoes)} ${plural(p.interacoes, 'interação', 'interações')}`,
+    ehSite(p) ? '' : p.views ? `${compacto(p.views)} visualizações` : textoInteracoes(p),
   ].filter(Boolean).map((t) => `<span>${t}</span>`).join('')
   const texto = p.mencao?.resumo || p.titulo
   const conta = `${autor(p)}${ehSite(p) ? ' · site de notícias' : p.tipoConta && ROT.tipo[p.tipoConta] ? ' · ' + ROT.tipo[p.tipoConta] : ''}`
@@ -436,7 +452,9 @@ function fichaHTML(p) {
     p.medidoEm ? ['Números de', esc(quando(p.medidoEm))] : null,
   ].filter(Boolean).map(([dt, dd]) => `<div><dt>${dt}</dt><dd>${dd}</dd></div>`).join('')
 
-  const numeros = site ? '' : numerosHTML([ // matéria de site não tem curtidas nem comentários
+  const numeros = site ? '' : p.formato === 'Story' ? numerosHTML([ // story: só o dono vê curtidas e respostas
+    [p.estimado ? `~${compacto(p.interacoes)}` : '—', 'interações estimadas'],
+  ]) : numerosHTML([ // matéria de site não tem curtidas nem comentários
     p.views != null ? [compacto(p.views), 'visualizações'] : null,
     [p.curtidas == null ? 'ocultas' : compacto(p.curtidas), 'curtidas'],
     [compacto(p.comentarios ?? 0), 'comentários'],
@@ -455,7 +473,7 @@ function fichaHTML(p) {
   const mesma = f
     ? `<section class="secao"><h3 class="secao-titulo">A mesma notícia em ${inteiro(f.perfis)} ${plural(f.perfis, 'perfil', 'perfis')}</h3>${numerosHTML([
       [inteiro(f.posts), plural(f.posts, 'post, story ou matéria', 'posts, stories e matérias')],
-      [compacto(f.interacoes), 'curtidas e comentários somados'],
+      [compacto(f.interacoes), f.interacoesEstimadas ? 'interações somadas, com os stories estimados' : 'curtidas e comentários somados'],
       f.visualizacoes ? [compacto(f.visualizacoes), 'visualizações somadas'] : null,
       [quando(f.primeira.data), `primeira aparição, ${quem(f.primeira)}`],
       [f.coberturaEstadual ? 'Sim' : 'Não', 'cobertura de portal estadual'],
@@ -958,7 +976,7 @@ function dicaHTML(p, camada, nomes) {
       + `<span>${esc(nomes.get(p.municipio) || '')}</span></div>`
   }
   const sentimento = p.sentimento ? `<span class="forte">Menção ${ROT.sentimento[p.sentimento].toLowerCase()}</span>` : ''
-  const numeros = p.views ? `${compacto(p.views)} visualizações` : `${compacto(p.interacoes)} ${plural(p.interacoes, 'interação', 'interações')}`
+  const numeros = p.views ? `${compacto(p.views)} visualizações` : textoInteracoes(p)
   return `${p.capa ? `<img src="${urlCapa(p.id)}" alt="">` : ''}<div>${sentimento}<b>${esc(p.titulo || '@' + p.conta)}</b>`
     + `<span>${esc(autor(p))} · ${esc(quando(p.data))}${ehSite(p) ? '' : ` · ${numeros}`}</span>`
     + `<span>${esc(nomes.get(p.municipio) || '')} ${esc(FONTE_LOCAL[p.fonte] || '')}</span></div>`
