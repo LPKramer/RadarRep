@@ -22,7 +22,12 @@ const ROT = {
     neutra: 'Comentários neutros',
   },
   sentimento: { negativo: 'Negativa', neutro: 'Neutra', positivo: 'Positiva' },
-  formato: { Image: 'Foto', Video: 'Reel', Sidecar: 'Carrossel', Story: 'Story', Materia: 'Matéria' },
+  formato: { Image: 'Foto', Video: 'Reel', Sidecar: 'Carrossel', Story: 'Story', Materia: 'Matéria', AoVivo: 'Rádio' },
+  cena: {
+    positivo: 'Positivo', favoravel: 'Favorável', desfavoravel: 'Desfavorável', negativo: 'Negativo',
+    protagonista: 'Protagonista', coadjuvante: 'Coadjuvante', citacao: 'Citação',
+    grande: 'Grande', medio: 'Médio', pequeno: 'Pequeno',
+  },
 }
 const COR = { negativo: 'var(--negativo)', neutro: 'var(--neutro)', positivo: 'var(--positivo)' }
 const COR_REACAO = { negativa: 'var(--negativo)', positiva: 'var(--positivo)', mista: 'var(--texto)', neutra: 'var(--neutro)' }
@@ -54,10 +59,12 @@ const fmtDia = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'short'
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])
 const enc = encodeURIComponent
 const linkSeguro = (url) => (/^https:\/\//.test(url || '') ? url : '') // só https: nada de javascript: vindo do banco
-// Post do Instagram: @conta; matéria de site de notícia (rede "web"): o nome do site.
+// Post do Instagram: @conta; matéria de site de notícia (rede "web") e bloco da rádio ao vivo (rede "radio", só no
+// painel): o nome do site ou da rádio.
 const ehSite = (p) => p.rede === 'web'
-const autor = (p) => (ehSite(p) ? p.nome || p.conta : '@' + p.conta)
-const textoLink = (p) => (ehSite(p) ? 'Abrir a matéria' : 'Abrir no Instagram')
+const ehRadio = (p) => p.rede === 'radio'
+const autor = (p) => (ehSite(p) || ehRadio(p) ? p.nome || p.conta : '@' + p.conta)
+const textoLink = (p) => (ehSite(p) ? 'Abrir a matéria' : ehRadio(p) ? 'Site da rádio' : 'Abrir no Instagram')
 const compacto = (n) => (n == null ? '–' : fmtCompacto.format(n))
 const inteiro = (n) => (n == null ? '–' : fmtInteiro.format(n))
 const porcento = (n) => `${fmtDecimal.format(n)}%`
@@ -127,6 +134,7 @@ function metaCartao(p, formato) {
   if (formato === 'story') return [quando(p.data), p.estimado ? textoInteracoes(p) : ''].filter(Boolean).join(' · ')
   if (p.noticia) return `${compacto(p.noticia.interacoes)} ${plural(p.noticia.interacoes, 'interação', 'interações')}`
   if (ehSite(p)) return ['Matéria', quando(p.data)].join(' · ') // site não tem curtidas
+  if (ehRadio(p)) return ['Rádio', quando(p.data)].join(' · ')
   if (p.formato === 'Video' && p.views) return `${compacto(p.views)} visualizações`
   return textoInteracoes(p)
 }
@@ -308,7 +316,7 @@ function previaHTML(p) {
   return `<div class="previa-midia" data-abrir="${esc(p.id)}">${cartaz(textoCartaz(p, 'mencao'), sentimento ? COR[sentimento] : '')}`
     + (p.capa ? `<img src="${urlCapa(p.id)}" alt="" data-cai>` : '') + '</div>'
     + `<div class="previa-corpo"><div class="previa-acoes"><button class="botao botao-primario botao-p" type="button" data-abrir="${esc(p.id)}" tabindex="-1">Detalhes</button>`
-    + (linkSeguro(p.link) ? `<a class="botao botao-secundario botao-p" href="${esc(p.link)}" target="_blank" rel="noopener" tabindex="-1">${ehSite(p) ? 'Matéria' : 'Instagram'}</a>` : '')
+    + (linkSeguro(p.link) ? `<a class="botao botao-secundario botao-p" href="${esc(p.link)}" target="_blank" rel="noopener" tabindex="-1">${ehSite(p) ? 'Matéria' : ehRadio(p) ? 'Rádio' : 'Instagram'}</a>` : '')
     + `</div><p class="previa-meta">${meta}</p>${texto ? `<p class="previa-texto">${esc(texto)}</p>` : ''}<p class="previa-conta">${esc(conta)}</p></div>`
 }
 
@@ -417,6 +425,7 @@ function fichaHTML(p) {
   const c = p.contaInfo || { username: p.conta }
   const titulo = m ? ROT.tema[m.tema] || m.tema : p.formato === 'Story' ? `Story de @${p.conta}` : p.titulo || `Post de ${autor(p)}`
   const site = ehSite(p)
+  const radio = ehRadio(p)
 
   let frente = ''
   if (p.midia?.tipo === 'video') frente = `<video class="frente" src="${p.midia.url}" controls preload="none" playsinline${p.capa ? ` poster="${capa}"` : ''}></video>`
@@ -443,7 +452,8 @@ function fichaHTML(p) {
   const fatos = [
     p.onde ? ['Localização aproximada', miniMapaHTML(p.onde, FONTE_LOCAL[p.onde.fonte] || '')] : null,
     site ? ['Site', esc(c.nome || c.username)]
-      : ['Conta', `<a href="#/conta/${enc(c.username)}">${esc(c.nome || '@' + c.username)}</a>${c.tipo && ROT.tipo[c.tipo] ? ` · ${esc(ROT.tipo[c.tipo])}` : ''}`],
+      : radio ? ['Rádio', esc(c.nome || c.username)]
+      : ['Conta',`<a href="#/conta/${enc(c.username)}">${esc(c.nome || '@' + c.username)}</a>${c.tipo && ROT.tipo[c.tipo] ? ` · ${esc(ROT.tipo[c.tipo])}` : ''}`],
     c.seguidores != null ? ['Seguidores', inteiro(c.seguidores)] : null,
     ['Publicado', esc(dataCompleta(p.data))],
     m?.municipios?.length ? ['Municípios do fato', esc(m.municipios.join(', '))]
@@ -452,7 +462,7 @@ function fichaHTML(p) {
     p.medidoEm ? ['Números de', esc(quando(p.medidoEm))] : null,
   ].filter(Boolean).map(([dt, dd]) => `<div><dt>${dt}</dt><dd>${dd}</dd></div>`).join('')
 
-  const numeros = site ? '' : p.formato === 'Story' ? numerosHTML([ // story: só o dono vê curtidas e respostas
+  const numeros = site || radio ? '' : p.formato === 'Story' ? numerosHTML([ // story: só o dono vê curtidas e respostas
     [p.estimado ? `~${compacto(p.interacoes)}` : '—', 'interações estimadas'],
   ]) : numerosHTML([ // matéria de site não tem curtidas nem comentários
     p.views != null ? [compacto(p.views), 'visualizações'] : null,
@@ -479,9 +489,27 @@ function fichaHTML(p) {
       [f.coberturaEstadual ? 'Sim' : 'Não', 'cobertura de portal estadual'],
     ])}${p.mesmaNoticia?.length ? `<div class="mini-grade">${p.mesmaNoticia.map((x) => cardPost(x, 'post')).join('')}</div>` : ''}</section>`
     : ''
-  // Vídeo de rádio (transcricao.py): os trechos da fala que tocam em energia, com o minuto.
-  const fala = p.falaNoVideo
-    ? `<section class="secao"><h3 class="secao-titulo">Fala no vídeo</h3><ul class="comentarios">${p.falaNoVideo.split(' (…) ').map((t) => `<li>${esc(t)}</li>`).join('')}</ul></section>`
+  // Vídeo de rádio (transcricao.py): os trechos da fala que tocam em energia, com o minuto. Rádio ao vivo: cada
+  // recorte com o áudio dele e, enquanto estiver no disco, o bloco inteiro.
+  const trechos = p.clipes?.length
+    ? p.clipes.map((x) => `<li>${esc(x.texto)}<audio class="audio" controls preload="none" src="${esc(x.url)}"></audio></li>`)
+    : (p.falaNoVideo || '').split(' (…) ').filter(Boolean).map((t) => `<li>${esc(t)}</li>`)
+  const bloco = p.bloco
+    ? `<div><p class="contagem">Bloco inteiro</p><audio class="audio" controls preload="none" src="${esc(p.bloco)}"></audio></div>`
+    : ''
+  const fala = trechos.length || bloco
+    ? `<section class="secao"><h3 class="secao-titulo">${radio ? 'No ar' : 'Fala no vídeo'}</h3>${trechos.length ? `<ul class="comentarios">${trechos.join('')}</ul>` : ''}${bloco}</section>`
+    : ''
+  // CENA (cena.py): a nota iCena da menção e o que a compõe. Só no painel.
+  const k = p.cena
+  const cena = k
+    ? `<section class="secao"><h3 class="secao-titulo">CENA</h3>${numerosHTML([
+      [fmtDecimal.format(k.icena), `iCena, ${k.faixa}`],
+      [ROT.cena[k.sentimento] || k.sentimento, 'sentimento'],
+      [ROT.cena[k.abordagem] || k.abordagem, 'abordagem'],
+      [ROT.cena[k.tamanho] || k.tamanho, 'tamanho'],
+      [`Tier ${k.tier}`, 'veículo'],
+    ])}${k.portaVoz || k.mensagens?.length ? `<div class="selos">${k.portaVoz ? `<span class="selo">Porta-voz: ${esc(k.portaVozNome || 'sim')}</span>` : ''}${(k.mensagens || []).map((x) => `<span class="selo">${esc(x)}</span>`).join('')}</div>` : ''}${k.justificativa ? `<p>${esc(k.justificativa)}</p>` : ''}</section>`
     : ''
   const repercussao = !f && m && m.repercutiram != null
     ? `<section class="secao"><h3 class="secao-titulo">Repercussão</h3>${numerosHTML([
@@ -504,7 +532,7 @@ function fichaHTML(p) {
         <h2 class="modal-titulo" id="modal-titulo">${esc(titulo)}</h2>
         <div class="modal-acoes">
           ${linkSeguro(p.link) ? `<a class="botao botao-primario" href="${esc(p.link)}" target="_blank" rel="noopener">${textoLink(p)}</a>` : ''}
-          ${site ? '' : `<a class="botao botao-secundario" href="#/conta/${enc(p.conta)}">@${esc(p.conta)}</a>`}
+          ${site || radio ? '' : `<a class="botao botao-secundario" href="#/conta/${enc(p.conta)}">@${esc(p.conta)}</a>`}
         </div>
       </div>
     </div>
@@ -517,7 +545,7 @@ function fichaHTML(p) {
         </div>
         <dl class="fatos">${fatos}</dl>
       </div>
-      ${numeros}${fala}${reacao}${mesma}${repercussao}${comentarios}${mais}
+      ${numeros}${cena}${fala}${reacao}${mesma}${repercussao}${comentarios}${mais}
     </div>`
 }
 
